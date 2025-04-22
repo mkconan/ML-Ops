@@ -1,5 +1,4 @@
-FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
-LABEL org.opencontainers.image.source https://github.com/flyteorg/flytesnacks
+FROM python:3.10-slim
 
 WORKDIR /root
 ENV LANG C.UTF-8
@@ -10,20 +9,15 @@ ENV PYTHONPATH /root
 # ENV WANDB_API_KEY <api_key>
 # ENV WANDB_USERNAME <user_name>
 
-# Install the AWS cli for AWS support
-RUN pip install awscli
-
-# Install gcloud for GCP
-RUN apt-get update && apt-get install -y make build-essential libssl-dev curl
-
 # Virtual environment
 ENV VENV /opt/venv
 RUN python3 -m venv ${VENV}
 ENV PATH="${VENV}/bin:$PATH"
 
 # Install Python dependencies
-COPY requirements.in /root
-RUN pip install -r /root/requirements.in
+COPY requirements.txt /root
+RUN pip install --upgrade pip
+RUN pip install -r /root/requirements.txt
 
 # Copy the actual code
 COPY . /root/
@@ -32,3 +26,20 @@ COPY . /root/
 # when registering tasks, workflows, and launch plans
 ARG tag
 ENV FLYTE_INTERNAL_IMAGE $tag
+ENV TERM xterm-256color
+
+RUN apt update && apt install -y \
+    git \
+    curl \
+    build-essential \
+    jq
+# UVのインストール
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+ENV FLYTECTL_CONFIG="~/.flyte/config-sandbox.yaml"
+EXPOSE 30080
+
+RUN uv python install 3.12
+RUN uv tool install flytekit
+RUN uv tool update-shell
+RUN curl -sL https://ctl.flyte.org/install | bash -s -- -b /usr/local/bin
